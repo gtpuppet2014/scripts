@@ -15,3 +15,5 @@ apt-get install -y augeas-tools
 # puppet resource service puppet ensure=running enable=true
 sed -i /etc/default/puppet -e 's/START=no/START=yes/'
 service puppet restart
+echo "Puppet agent is installed!" >> /home/usuario/puppet_installation_message.txt
+exit 0

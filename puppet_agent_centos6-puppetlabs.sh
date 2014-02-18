@@ -34,8 +34,12 @@ else
   rpm -ivh https://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-10.noarch.rpm
   yum -y update
 
-# Puppet
-  yum install -y puppet facter
+# Puppet (ultima version no repositorio)
+#  yum install -y puppet facter
+
+# facter 1.7.4 e puppet 3.4.2
+  yum -y install facter-1.7.4-1.el6.x86_64.rpm
+  yum -y install puppet-3.4.2-1.el6.x86_64.rpm
 fi
 
 # Puppet agent en modo 'daemon'	

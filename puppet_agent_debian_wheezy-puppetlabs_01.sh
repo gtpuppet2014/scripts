@@ -1,5 +1,10 @@
 #!/bin/sh
 
+DEB_REPO_FINAL="/etc/apt/sources.list.d/puppetlabs.list"
+SUFFIX="1puppetlabs1"
+FACTER_VERSION="1.7.4"
+PUPPET_VERSION="3.4.2"
+
 # De: https://github.com/panticz/installit/blob/master/install.puppet-client.sh
 # ensure that this script is run by root
 if [ $(id -u) -ne 0 ]; then
@@ -24,15 +29,16 @@ apt-get install -y rubygems rubygems1.8
 # Puppet
 #
 # De: https://github.com/gtpuppet2014/puppet-bootstrap/blob/master/debian.sh
-cd /tmp
-wget http://apt.puppetlabs.com/puppetlabs-release-wheezy.deb
-dpkg -i puppetlabs-release-wheezy.deb
+if [ ! -f $DEB_REPO_FINAL ];then
+  cd /tmp
+  wget http://apt.puppetlabs.com/puppetlabs-release-wheezy.deb
+  dpkg -i puppetlabs-release-wheezy.deb
 # Equivalente a: gpg --recv-key 4BD6EC30 && gpg -a --export 4BD6EC30 | sudo apt-key add -
+fi
 
 apt-get update
-apt-get install -y facter=1.7.4-1puppetlabs1
-apt-get install -y puppet-common=3.2.4-1puppetlabs1
-apt-get install -y puppet=3.2.4-1puppetlabs1
+apt-get install -y facter=$FACTER_VERSION-$SUFFIX
+apt-get install -y puppet-common=$PUPPET_VERSION-$SUFFIX puppet=$PUPPET_VERSION-$SUFFIX
 
 # Opcional pero recomendado
 apt-get install -y augeas-tools

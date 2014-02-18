@@ -7,7 +7,7 @@ apt-get install -y lsb_release
 # Paquetería recomendada
 apt-get install -y gcc gcc-++ build-essential libxslt1-dev libxml2-dev libreadline-dev \
 libreadline6-dev zlib1g-dev libssl-dev libyaml-dev curl git-core wget tree \
-checkinstall make automake cmake autoconf linux-headers-`uname -r` p11-kit ssh
+checkinstall make automake cmake autoconf linux-headers-`uname -r` p11-kit ssh ntpdate
 
 apt-get install -y ruby ruby-dev ruby-rgen ruby-switch
 apt-get install -y rubygems

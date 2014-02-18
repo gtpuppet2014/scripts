@@ -73,14 +73,15 @@ testmkdir /etc/puppet/hieradata
 if [ ! -e /etc/puppet/hiera.yaml ]; then
 cat > /etc/puppet/hiera.yaml <<END
 ---
-:backends:
-  - yaml
-
 :hierarchy:
-  - "%{::clientcert}" 
-  - common
+   - "%{::clientcert}" 
+   - common
 
-:datadir: '/etc/puppet/hieradata'
+:backends:
+   - yaml
+
+:yaml:
+   :datadir: '/etc/puppet/hieradata'
 
 :logger: console
 END

@@ -32,7 +32,7 @@ yum install -y httpd httpd-devel mod_ssl gcc-c++ curl-devel zlib-devel openssl-d
 
 # Puppet-server
 yum -y update
-yum -y puppet-server-3.4.2-1.el6.noarch.rpm
+yum install -y puppet-server-3.4.2-1.el6.noarch.rpm
 
 /sbin/service httpd stop
 

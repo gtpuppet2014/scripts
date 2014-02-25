@@ -37,7 +37,7 @@ yum install -y puppet-server-3.4.2-1.el6.noarch.rpm
 /sbin/service httpd stop
 
 # Necesario para xerar o certificado do puppetmaster
-r/sbin/service puppetmaster start
+/sbin/service puppetmaster start
 /sbin/service puppetmaster stop
 
 # EPEL

@@ -18,7 +18,7 @@ libreadline6-dev zlib1g-dev libssl-dev libyaml-dev curl git-core wget tree \
 checkinstall make automake cmake autoconf linux-headers-`uname -r` p11-kit ssh ntpdate
 
 # Para asegurar que 'facter' funcione correctamente
-apt-get install -y lsb_release
+apt-get install -y lsb-release
 
 # Ruby
 apt-get install -y ruby ruby-dev ruby-rgen ruby-switch

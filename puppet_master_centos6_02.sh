@@ -14,6 +14,7 @@
 # - https://github.com/sdoumbouya/puppetfiles/blob/master/puppetserver/puppetserver_bootstrap.sh
 # - http://yum.puppetlabs.com/puppetlabs-release-el-6.noarch.rpm
 # - http://www.tokiwinter.com/running-puppet-master-under-apache-and-passenger/
+# - http://darktraining/105
 
 # VARIABLES ################################################################################
 
@@ -251,7 +252,7 @@ echo "$IP $FQND $HOSTNAME" >> /etc/hosts
 
 # APACHE & PASSENGER ######################################################################################
 
-yum install -y httpd httpd-devel mod_ssl ruby-devel rubygems
+yum install -y httpd httpd-devel mod_ssl ruby-rdoc ruby-devel rubygems
 /usr/bin/gem install --no-rdoc --no-ri rack passenger 
 passenger-install-apache2-module --auto
  

@@ -16,6 +16,8 @@
 
 # - http://www.kermit.fr/kermit/doc/puppet/install.html
 # - https://github.com/sdoumbouya/puppetfiles/blob/master/puppetserver/puppetserver_bootstrap.sh
+# - https://github.com/phips/puppet-master/blob/master/setup.pp
+# - https://github.com/robinbowes/puppet-server-bootstrap/blob/master/psb
 # - http://yum.puppetlabs.com/puppetlabs-release-el-6.noarch.rpm
 # - http://www.tokiwinter.com/running-puppet-master-under-apache-and-passenger/
 # - http://darktraining/105
@@ -352,3 +354,7 @@ else
   download "${EPEL_REPO_URL}" "${TEMP_DIR}/$EPEL_RELEASE_RPM"
   yum -y localinstall "${TEMP_DIR}/$EPEL_RELEASE_RPM"
 fi
+
+disable_repo epel
+
+

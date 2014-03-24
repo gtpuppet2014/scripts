@@ -10,6 +10,7 @@
 # RERERENCES ################################################################################
 
 # - https://raw.githubusercontent.com/robinbowes/puppet-server-bootstrap/master/psb
+# - http://gutocarvalho.net/docuwiki/doku.php/puppet_instalando_puppet_master_em_centos
 # - http://www.kermit.fr/kermit/doc/puppet/install.html
 # - https://github.com/sdoumbouya/puppetfiles/blob/master/puppetserver/puppetserver_bootstrap.sh
 # - http://yum.puppetlabs.com/puppetlabs-release-el-6.noarch.rpm

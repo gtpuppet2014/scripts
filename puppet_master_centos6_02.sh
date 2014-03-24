@@ -251,7 +251,7 @@ echo "$IP $FQND $HOSTNAME" >> /etc/hosts
 
 # APACHE & PASSENGER ######################################################################################
 
-yum install -y httpd httpd-devel mod_ssl ruby-devel rubygemse
+yum install -y httpd httpd-devel mod_ssl ruby-devel rubygems
 /usr/bin/gem install --no-rdoc --no-ri rack passenger 
 passenger-install-apache2-module --auto
  

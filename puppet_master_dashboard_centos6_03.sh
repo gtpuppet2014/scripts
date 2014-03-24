@@ -23,6 +23,7 @@ PORT="3000"
 HOSTNAME=`/usr/bin/facter hostname`
 IP=`/usr/bin/facter ipaddress`
 TEMP_DIR=${TEMP:-/tmp}
+PASSENGER="true"
 
 # FUNCTIONS ################################################################################
 
@@ -365,3 +366,50 @@ enable_service puppet-dashboard-workers
 #service puppet-dashboard-workers start
 
 /sbin/service httpd restart
+
+if $PASSENGER == "true" {
+cat >/etc/httpd/conf.d/dashboard.conf<<END
+<VirtualHost *:80>
+        PassengerRuby /usr/bin/ruby
+        PassengerHighPerformance on
+        PassengerMaxPoolSize 12
+        PassengerPoolIdleTime 1500
+        PassengerMaxRequests 1000
+        PassengerStatThrottleRate 120
+        RailsAutoDetect On
+        RailsBaseURI /
+
+        ServerName puppet.hacklab
+        DocumentRoot /usr/share/puppet-dashboard/public/
+        ErrorLog /var/log/httpd/dashboard_error.log
+        LogLevel warn
+        CustomLog /var/log/httpd/dashboard_access.log combined
+        ServerSignature On
+
+        <Directory /usr/share/puppet-dashboard/public/>
+                AllowOverride all
+                Options -MultiViews
+                Order allow,deny
+                allow from all
+        </Directory>
+</VirtualHost>
+END
+
+
+# ENC
+node_terminus = exec
+external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN:$PORT /usr/share/puppet-dashboard/bin/external_node
+
+disable_service puppet-dashboard
+
+else
+
+# ENC
+node_terminus = exec
+external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN:$PORT /usr/share/puppet-dashboard/bin/external_node
+
+enable_service puppet-dashboard
+#chkconfig puppet-dashboard on
+#service puppet-dashboard start
+
+}

@@ -11,6 +11,9 @@
 
 # - https://raw.githubusercontent.com/robinbowes/puppet-server-bootstrap/master/psb
 # - http://gutocarvalho.net/docuwiki/doku.php/puppet_instalando_puppet_master_em_centos
+# - http://gutocarvalho.net/puppet/doku.php
+# - http://www.ifunky.net/Blog/category/Puppet.aspx
+
 # - http://www.kermit.fr/kermit/doc/puppet/install.html
 # - https://github.com/sdoumbouya/puppetfiles/blob/master/puppetserver/puppetserver_bootstrap.sh
 # - http://yum.puppetlabs.com/puppetlabs-release-el-6.noarch.rpm
@@ -21,12 +24,14 @@
 
 REDHAT_RELEASE=/etc/redhat-release
 PUPPETLABS_REPO_BASE="http://yum.puppetlabs.com"
-EPEL_REPO="http://dl.fedoraproject.org/pub/epel"
+EPEL_REPO_BASE="http://dl.fedoraproject.org/pub/epel"
+EPEL_RPM_RELEASE="8"
 ARCH=`uname -m`
 FQDN=`hostname -f`
 HOSTNAME=`/usr/bin/facter hostname`
 IP=`/usr/bin/facter ipaddress`
 TIMESERVER="hora.rediris.es"
+TEMP_DIR=${TEMP:-/tmp}
 # REPO_URL="http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-7.noarch.rpm"
 # ELV=`cat /etc/redhat-release | gawk 'BEGIN {FS="release "} {print $2}' | gawk 'BEGIN {FS="."} {print $1}'` # osmajorversion
 
@@ -298,7 +303,6 @@ Listen 8140
 
     # These request headers are used to pass the client certificate
     # authentication information on to the puppet master process
-    RequestHeader unset X-Forwarded-For
     RequestHeader set X-SSL-Subject %{SSL_CLIENT_S_DN}e
     RequestHeader set X-Client-DN %{SSL_CLIENT_S_DN}e
     RequestHeader set X-Client-Verify %{SSL_CLIENT_VERIFY}e
@@ -312,13 +316,14 @@ Listen 8140
    CustomLog /var/log/httpd/puppetmaster_access.log combined
    ServerSignature On
 
-    DocumentRoot /usr/share/puppet/rack/puppetmasterd/public/
-    <Directory /usr/share/puppet/rack/puppetmasterd/>
+   DocumentRoot /usr/share/puppet/rack/puppetmasterd/public/
+
+   <Directory /usr/share/puppet/rack/puppetmasterd/>
         Options None
         AllowOverride None
         Order Allow,Deny
         Allow from All
-    </Directory>
+   </Directory>
 </VirtualHost>
 EOF
 
@@ -333,3 +338,17 @@ enable_service httpd
 # file: usr/share/puppet
 # owner: puppet
 # group: puppet
+
+# EPEL ##############################################################################################
+
+# retrieve the release RPM and install it
+EPEL_RELEASE_NAME="epel-release-${OS_MAJOR_VERSION}-${EPEL_RPM_RELEASE}"
+EPEL_RELEASE_RPM="${EPEL_RELEASE_NAME}.noarch.rpm"
+
+if rpm_installed "${EPEL_RELEASE_NAME}" ; then
+  echo "${EPEL_RELEASE_NAME} installed"
+else
+  EPEL_REPO_URL="${EPEL_REPO_BASE}/${FAMILY_VERSION}/$ARCH/${EPEL_RELEASE_RPM}"
+  download "${EPEL_REPO_URL}" "${TEMP_DIR}/$EPEL_RELEASE_RPM"
+  yum -y localinstall "${TEMP_DIR}/$EPEL_RELEASE_RPM"
+fi

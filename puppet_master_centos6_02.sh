@@ -1,7 +1,7 @@
-#!/bin/sh
-
-# Puppetmaster en CentOS 6.5 (64 bits) con Apache2 e Phussion Passenger
+#!/bin/bash
 #
+# Puppetmaster (Apache and Phussion Passenger)
+# CentOS 6.5 (64 bits)
 # Ruby version: 1.8.7
 # Facter version: 1.7.5
 # Puppet version: 2.7.23
@@ -17,15 +17,17 @@
 
 # VARIABLES ################################################################################
 
-# REPO_URL="http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-7.noarch.rpm"
-# ELV=`cat /etc/redhat-release | gawk 'BEGIN {FS="release "} {print $2}' | gawk 'BEGIN {FS="."} {print $1}'` # osmajorversion
-
 REDHAT_RELEASE=/etc/redhat-release
 PUPPETLABS_REPO_BASE="http://yum.puppetlabs.com"
 EPEL_REPO="http://dl.fedoraproject.org/pub/epel"
 ARCH=`uname -m`
 FQDN=`hostname -f`
+HOSTNAME=`/usr/bin/facter hostname`
+IP=`/usr/bin/facter ipaddress`
 TIMESERVER="hora.rediris.es"
+# REPO_URL="http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-7.noarch.rpm"
+# ELV=`cat /etc/redhat-release | gawk 'BEGIN {FS="release "} {print $2}' | gawk 'BEGIN {FS="."} {print $1}'` # osmajorversion
+
 
 # FUNCTIONS ################################################################################
 
@@ -91,6 +93,7 @@ disable_service() {
 
 ############################################################################################
 # hash defining the release RPM release for each of the OS combinations we know about
+
 declare -A PUPPETLABS_RELEASE=(
   ["fedora/f17"]="7"
   ["fedora/f18"]="7"
@@ -134,7 +137,7 @@ if rpm_installed "${PUPPETLABS_RELEASE_NAME}" ; then
 else
   PUPPETLABS_REPO_URL="${PUPPETLABS_REPO_BASE}/${FAMILY_VERSION}/products/$ARCH/${PUPPETLABS_RELEASE_RPM}"
   download "${PUPPETLABS_REPO_URL}" "${TEMP_DIR}/$PUPPETLABS_RELEASE_RPM"
-  yum localinstall "${TEMP_DIR}/$PUPPETLABS_RELEASE_RPM"
+  yum -y localinstall "${TEMP_DIR}/$PUPPETLABS_RELEASE_RPM"
 fi
 
 # Requirements ###################################################################################
@@ -149,8 +152,8 @@ disable_service ip6tables
 
 yum -y update
 
-yum -y install gcc-c++ yum-utils tzdata curl-devel zlib-devel openssl-devel apr-devel tree lsof \
-git-core wget screen redhat-lsb
+yum -y install gcc-c++ yum-utils tzdata gcc-c++ curl-devel zlib-devel openssl-devel apr-devel make automake \
+git-core wget screen redhat-lsb tree lsof
 yum groupinstall -y "Development Tools" 
 
 # Ntp service ####################################################################################
@@ -173,24 +176,84 @@ ntpdate -q $TIMESERVER
 enable_service ntpd
 
 # Puppet-server ###################################################################################
-yum -y install puppet-server-2.7.23-1.el6.noarch
-#yum -y install puppet-server-3.4.2-1.el6.noarch
+disable_repo puppetlabs-products
+disable_repo puppetlabs-deps
 
-testmkdir /etc/puppet
+yum --enablerepo=puppetlabs* -y install puppet-server-2.7.23-1.el6.noarch
+#yum --enablerepo=puppetlabs* -y install puppet-server-3.4.2-1.el6.noarch
 
+testmkdir "/etc/puppet"
 
+#testmkdir "/etc/puppet/manifests"
+#testmkdir "/etc/puppet/modules"
+#testmkdir "/etc/puppet/local"
+#testmkdir "/etc/puppet/hieradb"
 
-# Necesario para xerar o certificado do puppetmaster
+cat >/etc/puppet/puppet.conf <<END
+[main]
+vardir      = /var/lib/puppet
+logdir      = /var/log/puppet
+rundir      = /var/run/puppet
+ssldir      = /var/lib/puppet/ssl
+statedir    = /var/lib/puppet/state
+confdir     = /etc/puppet
+factpath    = /var/lib/puppet/facts:/var/lib/puppet/lib/facter
+logdestfile = /var/log/puppet/puppet.log
+pluginsync  = true
+
+server        = $FQDN
+dns_alt_names = $FQDN
+
+[master]
+ca        = true
+ca_server = $FQDN
+ca_name   = $FQDN
+certname  = $FQDN
+# autosign = /etc/puppet/autosign.conf
+manifestdir = /etc/puppet/manifests
+manifest = /etc/puppet/manifests/site.pp
+modulepath = /etc/puppet/modules:/etc/puppet/local
+
+# These are needed when the puppetmaster is run by passenger
+# and can safely be removed if webrick is used.
+ssl_client_header = SSL_CLIENT_S_DN
+ssl_client_verify_header = SSL_CLIENT_VERIFY
+END
+
+# Generate ca and master certificate
 /sbin/service puppetmaster start
 /sbin/service puppetmaster stop
+# same as: /usr/bin/puppet resource service puppetmaster status=running enable=true
 
+# Firewall
+cat >/etc/sysconfig/iptables<<END
+#
+# Firewall configuration written by system-config-firewall
+# Manual customization of this file is not recommended.
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 8140 -j ACCEPT
+-A INPUT -j REJECT --reject-with icmp-host-prohibited
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+COMMIT
+END
 
+enable_service iptables
 
+# HOSTS
+echo "$IP $FQND $HOSTNAME" >> /etc/hosts
 
+# APACHE & PASSENGER ######################################################################################
 
-# Passenger ######################################################################################
-
-passenger-install-apache2-module # versions actualizadas
+yum install -y httpd httpd-devel mod_ssl ruby-devel rubygemse
+/usr/bin/gem install --no-rdoc --no-ri rack passenger 
+passenger-install-apache2-module --auto
  
 # Create the directory structure for Puppet Master Rack Application
 mkdir -p /usr/share/puppet/rack/puppetmasterd
@@ -198,14 +261,13 @@ mkdir /usr/share/puppet/rack/puppetmasterd/public /usr/share/puppet/rack/puppetm
 cp /usr/share/puppet/ext/rack/files/config.ru /usr/share/puppet/rack/puppetmasterd/
 chown puppet /usr/share/puppet/rack/puppetmasterd/config.ru
 
-# Create a virtual host for puppet
-# Replace x.x.x with the passenger module version
-# Replace puppet.domain with the fqdn of the puppetmaster
 cat << 'EOF' > /etc/httpd/conf.d/puppetmaster.conf
-# RHEL/CentOS:
-LoadModule passenger_module /usr/lib/ruby/gems/1.8/gems/passenger-x.x.x/ext/apache2/mod_passenger.so
-PassengerRoot /usr/lib/ruby/gems/1.8/gems/passenger-x.x.x
-PassengerRuby /usr/bin/ruby
+   LoadModule passenger_module /usr/lib/ruby/gems/1.8/gems/passenger-4.0.40/buildout/apache2/mod_passenger.so
+   <IfModule mod_passenger.c>
+     PassengerRoot /usr/lib/ruby/gems/1.8/gems/passenger-4.0.40
+     PassengerDefaultRuby /usr/bin/ruby
+   </IfModule>
+
 # And the passenger performance tuning settings:
 PassengerHighPerformance On
 PassengerUseGlobalQueue On
@@ -215,52 +277,52 @@ PassengerMaxPoolSize 6
 PassengerMaxRequests 1000
 # Stop processes if they sit idle for 10 minutes
 PassengerPoolIdleTime 600
+
 Listen 8140
 <VirtualHost *:8140>
-SSLEngine On
-# Only allow high security cryptography. Alter if needed for compatibility.
-SSLProtocol All -SSLv2
-SSLCipherSuite HIGH:!ADH:RC4+RSA:-MEDIUM:-LOW:-EXP
-SSLCertificateFile /var/lib/puppet/ssl/certs/puppet.domain.pem
-SSLCertificateKeyFile /var/lib/puppet/ssl/private_keys/puppet.domain.pem
-SSLCertificateChainFile /var/lib/puppet/ssl/ca/ca_crt.pem
-SSLCACertificateFile /var/lib/puppet/ssl/ca/ca_crt.pem
-SSLCARevocationFile /var/lib/puppet/ssl/ca/ca_crl.pem
-SSLVerifyClient optional
-SSLVerifyDepth 1
-SSLOptions +StdEnvVars +ExportCertData
-# These request headers are used to pass the client certificate
-# authentication information on to the puppet master process
-RequestHeader set X-SSL-Subject %{SSL_CLIENT_S_DN}e
-RequestHeader set X-Client-DN %{SSL_CLIENT_S_DN}e
-RequestHeader set X-Client-Verify %{SSL_CLIENT_VERIFY}e
-RackAutoDetect On
-DocumentRoot /usr/share/puppet/rack/puppetmasterd/public/
-<Directory /usr/share/puppet/rack/puppetmasterd/>
-Options None
-AllowOverride None
-Order Allow,Deny
-Allow from All
-</Directory>
+    SSLEngine On
+
+    # Only allow high security cryptography. Alter if needed for compatibility.
+    SSLProtocol             All -SSLv2
+    SSLCipherSuite          HIGH:!ADH:RC4+RSA:-MEDIUM:-LOW:-EXP
+    SSLCertificateFile      /var/lib/puppet/ssl/certs/${FQDN}.pem
+    SSLCertificateKeyFile   /var/lib/puppet/ssl/private_keys/${FQDN}.pem
+    SSLCertificateChainFile /var/lib/puppet/ssl/ca/ca_crt.pem
+    SSLCACertificateFile    /var/lib/puppet/ssl/ca/ca_crt.pem
+    SSLCARevocationFile     /var/lib/puppet/ssl/ca/ca_crl.pem
+    SSLVerifyClient         optional
+    SSLVerifyDepth          1
+    SSLOptions              +StdEnvVars +ExportCertData
+
+    # These request headers are used to pass the client certificate
+    # authentication information on to the puppet master process
+    RequestHeader unset X-Forwarded-For
+    RequestHeader set X-SSL-Subject %{SSL_CLIENT_S_DN}e
+    RequestHeader set X-Client-DN %{SSL_CLIENT_S_DN}e
+    RequestHeader set X-Client-Verify %{SSL_CLIENT_VERIFY}e
+
+###    RackAutoDetect On
+
+# Possible values include: debug, info, notice, warn, error, crit,
+   # alert, emerg.
+   ErrorLog /var/log/httpd/puppetmaster_error.log
+   LogLevel warn
+   CustomLog /var/log/httpd/puppetmaster_access.log combined
+   ServerSignature On
+
+    DocumentRoot /usr/share/puppet/rack/puppetmasterd/public/
+    <Directory /usr/share/puppet/rack/puppetmasterd/>
+        Options None
+        AllowOverride None
+        Order Allow,Deny
+        Allow from All
+    </Directory>
 </VirtualHost>
 EOF
 
-/sbin/chkconfig httpd on
-/sbin/chkconfig puppetmaster off
-/sbin/service httpd restart
-
-sed -i '/^exit 1$/d' /etc/init.d/puppetmaster
-sed -i '1i\
-exit 1' /etc/init.d/puppetmaster
-
-# Firewall
-#
-chkconfig ip6tables off
-service ip6tables stop
-# Equivalente a engadir esta linha en /etc/sysconfig/iptables: -A RH-Firewall-1-INPUT -p tcp -m tcp --dport 8140 -j ACCEPT
-iptables -I INPUT -p tcp --dport 8140 -j ACCEPT
-#iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-service iptables save
+enable_service httpd
+#/sbin/chkconfig httpd on
+#/sbin/service httpd restart
 
 # ACL's
 #

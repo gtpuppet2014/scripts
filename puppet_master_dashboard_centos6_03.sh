@@ -113,13 +113,105 @@ EOF
 puppet apply -v /opt/puppetlabs/manifests/site.pp --modulepath /opt/puppetlabs/modules
 
 cd /usr/share/puppet-dashboard/config
-cat >/usr/share/puppet-dashboard/config/database.yaml<<END
+cat >/usr/share/puppet-dashboard/config/database.yml<<END
 production:
   database: dashboard
   username: admin
   password: Va633eQ0S80OP7l148T80670
   encoding: utf8
   adapter: mysql
+END
+
+cat >/usr/share/puppet-dashboard/config/settings.yml<<END
+#===[ Settings ]=========================================================
+#
+# This file is meant for storing setting information that is never
+# published or committed to a revision control system.
+#
+# Do not modify this "config/settings.yml.example" file directly -- you
+# should copy it to "config/settings.yml" and customize it there.
+#
+#---[ Values ]----------------------------------------------------------
+
+# Node name to use when contacting the puppet master.  This is the
+# CN that is used in Dashboard's certificate.
+cn_name: 'dashboard'
+
+ca_crl_path: 'certs/dashboard.ca_crl.pem'
+
+ca_certificate_path: 'certs/dashboard.ca_cert.pem'
+
+certificate_path: 'certs/dashboard.cert.pem'
+
+private_key_path: 'certs/dashboard.private_key.pem'
+
+public_key_path: 'certs/dashboard.public_key.pem'
+
+# Hostname of the certificate authority.
+ca_server: '$FQDN'
+
+# Port for the certificate authority.
+ca_port: 8140
+
+# Key length for SSL certificates
+key_length: 1024
+
+# The "inventory service" allows you to connect to a puppet master to retrieve and node facts
+enable_inventory_service: true
+
+# Hostname of the inventory server.
+inventory_server: '$FQDN'
+
+# Port for the inventory server.
+inventory_port: 8140
+
+# Set this to true to allow Dashboard to display diffs on files that
+# are archived in the file bucket.
+use_file_bucket_diffs: false
+
+# Hostname of the file bucket server.
+file_bucket_server: '$FQDN'
+
+# Port for the file bucket server.
+file_bucket_port: 8140
+
+# Amount of time in seconds since last report before a node is considered no longer reporting
+no_longer_reporting_cutoff: 3600
+
+# How many days of history to display on the "Daily Run Status" graph
+daily_run_history_length: 30
+
+use_external_node_classification: true
+
+# Uncomment the following line to set a local time zone.  Run
+# "rake time:zones:local" for the name of your local time zone.
+time_zone: 'Madrid'
+
+# Look at http://ruby-doc.org/core/classes/Time.html#M000298 for the strftime formatting
+datetime_format: '%Y-%m-%d %H:%M %Z'
+date_format: '%A, %B %e, %Y'
+
+# Set this to the URL of an image. The image will be scaled to the specified dimensions.
+custom_logo_url: '/images/dashboard_logo.png'
+custom_logo_width: 155px
+custom_logo_height: 23px
+custom_logo_alt_text: 'Puppet Dashboard'
+
+# We will be deprecating using "http://dashboard_servername/reports" as the puppet master's reporturl.
+# Set this to 'true' once you have changed all your puppet masters to send reports to
+# "http://dashboard_servername/reports/upload"
+disable_legacy_report_upload_url: false
+
+# Disables the UI and controller actions for editing nodes, classes, groups and reports.  Report submission is still allowed
+enable_read_only_mode: false
+
+# Default number of items of each kind to display per page
+nodes_per_page: 20
+classes_per_page: 50
+groups_per_page: 50
+reports_per_page: 20
+
+#===[ fin ]=============================================================
 END
 
 rake gems:refresh_specs
@@ -129,7 +221,7 @@ cat >>/etc/puppet/puppet.conf <<END
 
 # reports
 reports = store, http
-reporturl = http://$FQND:$PORT/reports/upload
+reporturl = http://$FQDN:$PORT/reports/upload
 storeconfigs = true
 
 # dashboard
@@ -139,6 +231,127 @@ dbuser = admin
 dbpassword = Va633eQ0S80OP7l148T80670
 dbserver = 127.0.0.1
 dbconnections = 10
+END
+
+cat >/etc/puppet/auth.conf <<END
+# This is an example auth.conf file, it mimics the puppetmasterd defaults
+#
+# The ACL are checked in order of appearance in this file.
+#
+# Supported syntax:
+# This file supports two different syntax depending on how
+# you want to express the ACL.
+#
+# Path syntax (the one used below):
+# ---------------------------------
+# path /path/to/resource
+# [environment envlist]
+# [method methodlist]
+# [auth[enthicated] {yes|no|on|off|any}]
+# allow [host|ip|*]
+# deny [host|ip]
+#
+# The path is matched as a prefix. That is /file match at
+# the same time /file_metadat and /file_content.
+#
+# Regex syntax:
+# -------------
+# This one is differenciated from the path one by a '~'
+#
+# path ~ regex
+# [environment envlist]
+# [method methodlist]
+# [auth[enthicated] {yes|no|on|off|any}]
+# allow [host|ip|*]
+# deny [host|ip]
+#
+# The regex syntax is the same as ruby ones.
+#
+# Ex:
+# path ~ .pp$
+# will match every resource ending in .pp (manifests files for instance)
+#
+# path ~ ^/path/to/resource
+# is essentially equivalent to path /path/to/resource
+#
+# environment:: restrict an ACL to a specific set of environments
+# method:: restrict an ACL to a specific set of methods
+# auth:: restrict an ACL to an authenticated or unauthenticated request
+# the default when unspecified is to restrict the ACL to authenticated requests
+# (ie exactly as if auth yes was present).
+#
+
+### Authenticated ACL - those applies only when the client
+### has a valid certificate and is thus authenticated
+
+# allow nodes to retrieve their own catalog (ie their configuration)
+path ~ ^/catalog/([^/]+)$
+method find
+allow $1
+
+# allow nodes to retrieve their own node definition
+path ~ ^/node/([^/]+)$
+method find
+allow $1
+
+# allow all nodes to access the certificates services
+path /certificate_revocation_list/ca
+method find
+allow *
+
+# allow all nodes to store their own reports
+path ~ ^/report/([^/]+)$
+method save
+allow $1
+
+# inconditionnally allow access to all files services
+# which means in practice that fileserver.conf will
+# still be used
+path /file
+allow *
+
+### Unauthenticated ACL, for clients for which the current master doesn't
+### have a valid certificate; we allow authenticated users, too, because
+### there isn't a great harm in letting that request through.
+
+# allow access to the master CA
+path /certificate/ca
+auth any
+method find
+allow *
+
+path /certificate/
+auth any
+method find
+allow *
+
+path /certificate_request
+auth any
+method find, save
+allow *
+
+#######################################################
+# Inventory
+path /inventory
+method search
+allow *
+
+path /facts
+auth any
+method find, search
+allow *
+
+path /facts
+auth any
+method save
+allow *
+
+#######################################################
+
+# this one is not stricly necessary, but it has the merit
+# to show the default policy which is deny everything else
+path /
+auth any
 END
 
 enable_service puppet-dashboard

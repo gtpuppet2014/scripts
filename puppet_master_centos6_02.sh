@@ -4,7 +4,7 @@
 # CentOS 6.5 (64 bits)
 # Ruby version: 1.8.7
 # Facter version: 1.7.5
-# Puppet version: 2.7.23
+# Puppet version: 2.7.23 -> 3.4.3
 # Phussion Passenger: 4
 
 # RERERENCES ################################################################################
@@ -30,6 +30,7 @@ EPEL_REPO_BASE="http://dl.fedoraproject.org/pub/epel"
 EPEL_RPM_RELEASE="8"
 ARCH=`uname -m`
 FQDN=`hostname -f`
+PUPPETVERSION=`facter puppetversion`
 HOSTNAME=`/usr/bin/facter hostname`
 IP=`/usr/bin/facter ipaddress`
 TIMESERVER="hora.rediris.es"
@@ -188,8 +189,7 @@ enable_service ntpd
 disable_repo puppetlabs-products
 disable_repo puppetlabs-deps
 
-yum --enablerepo=puppetlabs* -y install puppet-server-2.7.23-1.el6.noarch
-#yum --enablerepo=puppetlabs* -y install puppet-server-3.4.2-1.el6.noarch
+yum --enablerepo=puppetlabs* -y install puppet-server-$PUPPETVERSION-1.el6.noarch
 
 testmkdir "/etc/puppet"
 
@@ -267,7 +267,11 @@ passenger-install-apache2-module --auto
 # Create the directory structure for Puppet Master Rack Application
 mkdir -p /usr/share/puppet/rack/puppetmasterd
 mkdir /usr/share/puppet/rack/puppetmasterd/public /usr/share/puppet/rack/puppetmasterd/tmp
-cp /usr/share/puppet/ext/rack/files/config.ru /usr/share/puppet/rack/puppetmasterd/
+if [[ $PUPPETVERSION -eq '2.7.23' ]];then
+  cp /usr/share/puppet/ext/rack/files/config.ru /usr/share/puppet/rack/puppetmasterd/
+elif [[ $PUPPETVERSION --eq '3.4.3' ]];then
+  wget https://raw.github.com/puppetlabs/puppet/master/ext/rack/config.ru -O /usr/share/puppet/rack/puppetmasterd/config.ru
+fi
 chown puppet /usr/share/puppet/rack/puppetmasterd/config.ru
 
 cat << 'EOF' > /etc/httpd/conf.d/puppetmaster.conf

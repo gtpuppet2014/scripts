@@ -94,6 +94,9 @@ yum --enablerepo=puppetlabs* -y install puppet-dashboard-1.2.23-1.el6.noarch rub
 testmkdir "/opt/puppetlabs/{manifests,modules}"
 puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-stdlib --version 3.2.1
 puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-mysql --version 2.2.3
+git clone https://github.com/puppetlabs/puppetlabs-auth_conf /opt/puppetlabs/modules/auth_conf
+cd /opt/puppetlabs/modules/auth_conf
+git checkout tags/0.2.0
 
 cat >/opt/puppetlabs/manifests/site.pp<<EOF
 node default {
@@ -108,6 +111,22 @@ node default {
     grant    => ['all'],
   }
 
+/*
+  include auth_conf::defaults
+  
+  auth_conf::acl { '/inventory':
+    auth       => 'any',
+    acl_method => 'search',
+    allow      => '*',
+    order      => 081,
+  }
+  auth_conf::acl { '/facts':
+    auth       => 'any',
+    acl_method => ['find','search','save'],
+    allow      => '*',
+    order      => 082,
+  }
+*/
 }
 EOF
 

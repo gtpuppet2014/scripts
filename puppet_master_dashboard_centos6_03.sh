@@ -1,10 +1,11 @@
+
 #!/bin/bash
 #
 # Puppetmaster (Apache and Phussion Passenger)
 # CentOS 6.5 (64 bits)
 # Ruby version: 1.8.7
 # Facter version: 1.7.5
-# Puppet version: 2.7.23
+# Puppet version: 3.4.3
 # Phussion Passenger: 4
 
 # RERERENCES ################################################################################
@@ -24,6 +25,7 @@ HOSTNAME=`/usr/bin/facter hostname`
 IP=`/usr/bin/facter ipaddress`
 TEMP_DIR=${TEMP:-/tmp}
 PASSENGER="true"
+DASH_PASSWD="Va633eQ0S80OP7l148T80670"
 
 # FUNCTIONS ################################################################################
 
@@ -89,7 +91,7 @@ disable_service() {
 
 # DASHBOARD ################################################################################
 
-yum --enablerepo=puppetlabs* -y install puppet-dashboard-1.2.23-1.el6.noarch rubygem-activerecord.noarch
+yum --enablerepo=puppetlabs* -y install puppet-dashboard-1.2.23-1.el6.noarch rubygem-activerecord-2.3.16-1.el6.noarch
 
 testmkdir "/opt/puppetlabs/{manifests,modules}"
 puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-stdlib --version 3.2.1
@@ -106,7 +108,7 @@ node default {
 
   mysql::db { 'dashboard':
     user     => 'admin',
-    password => 'Va633eQ0S80OP7l148T80670',
+    password => '$DASH_PASSWD',
     host     => 'localhost',
     grant    => ['all'],
   }
@@ -137,7 +139,7 @@ cat >/usr/share/puppet-dashboard/config/database.yml<<END
 production:
   database: dashboard
   username: admin
-  password: Va633eQ0S80OP7l148T80670
+  password: $DASH_PASSWD
   encoding: utf8
   adapter: mysql
 END
@@ -236,22 +238,6 @@ END
 
 rake gems:refresh_specs
 rake RAILS_ENV=production db:migrate
-
-cat >>/etc/puppet/puppet.conf <<END
-
-# reports
-reports = store, http
-reporturl = http://$FQDN:$PORT/reports/upload
-storeconfigs = true
-
-# dashboard
-dbadapter = mysql
-dbname = dashboard
-dbuser = admin
-dbpassword = Va633eQ0S80OP7l148T80670
-dbserver = 127.0.0.1
-dbconnections = 10
-END
 
 cat >/etc/puppet/auth.conf <<END
 # This is an example auth.conf file, it mimics the puppetmasterd defaults
@@ -416,6 +402,19 @@ END
 
 cat >>/etc/puppet/puppet.conf<EOF
 
+# reports
+reports = store, http
+reporturl = http://$FQDN/reports/upload
+storeconfigs = true
+
+# dashboard
+dbadapter = mysql
+dbname = dashboard
+dbuser = admin
+dbpassword = $DASH_PASSWD
+dbserver = 127.0.0.1
+dbconnections = 10
+
 # ENC
 node_terminus = exec
 external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN /usr/share/puppet-dashboard/bin/external_node
@@ -426,6 +425,19 @@ disable_service puppet-dashboard
 else
 cat >>/etc/puppet/puppet.conf<EOF
 
+# reports
+reports = store, http
+reporturl = http://$FQDN:$PORT/reports/upload
+storeconfigs = true
+
+# dashboard
+dbadapter = mysql
+dbname = dashboard
+dbuser = admin
+dbpassword = $DASH_PASSWD
+dbserver = 127.0.0.1
+dbconnections = 10
+
 # ENC
 node_terminus = exec
 external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN:$PORT /usr/share/puppet-dashboard/bin/external_node
@@ -434,5 +446,4 @@ EOF
 enable_service puppet-dashboard
 #chkconfig puppet-dashboard on
 #service puppet-dashboard start
-
 }

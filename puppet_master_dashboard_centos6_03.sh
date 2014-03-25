@@ -379,7 +379,7 @@ cat >/etc/httpd/conf.d/dashboard.conf<<END
         RailsAutoDetect On
         RailsBaseURI /
 
-        ServerName puppet.hacklab
+        ServerName $FQDN
         DocumentRoot /usr/share/puppet-dashboard/public/
         ErrorLog /var/log/httpd/dashboard_error.log
         LogLevel warn
@@ -395,18 +395,22 @@ cat >/etc/httpd/conf.d/dashboard.conf<<END
 </VirtualHost>
 END
 
+cat >>/etc/puppet/puppet.conf<EOF
 
 # ENC
 node_terminus = exec
-external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN:$PORT /usr/share/puppet-dashboard/bin/external_node
+external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN /usr/share/puppet-dashboard/bin/external_node
+EOF
 
 disable_service puppet-dashboard
 
 else
+cat >>/etc/puppet/puppet.conf<EOF
 
 # ENC
 node_terminus = exec
 external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN:$PORT /usr/share/puppet-dashboard/bin/external_node
+EOF
 
 enable_service puppet-dashboard
 #chkconfig puppet-dashboard on

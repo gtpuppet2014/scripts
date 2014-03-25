@@ -35,9 +35,9 @@ else
 # Puppet (ultima version no repositorio)
 #  yum install -y puppet facter
 
-# facter 1.7.4 e puppet 3.4.2
-  yum -y install facter-1.7.4-1.el6.noarch
-  yum -y install puppet-3.4.2-1.el6.noarch
+# facter 1.7.5 e puppet 3.4.3
+  yum -y install facter-1.7.5-1.el6.noarch
+  yum -y install puppet-3.4.3-1.el6.noarch
 fi
 
 # Puppet agent en modo 'daemon'	

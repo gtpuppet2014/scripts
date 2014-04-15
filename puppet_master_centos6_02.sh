@@ -1,19 +1,18 @@
 #!/bin/bash
-#
+
 # Puppetmaster (Apache and Phussion Passenger)
 # CentOS 6.5 (64 bits)
 # Ruby version: 1.8.7
 # Facter version: 1.7.5
-# Puppet version: 2.7.23 -> 3.4.3
-# Phussion Passenger: 4
+# Puppet version: 3.4.3
+# Phussion Passenger: 4.0.41
 
-# RERERENCES ################################################################################
+# RERERENCES ###########################################################################
 
 # - https://raw.githubusercontent.com/robinbowes/puppet-server-bootstrap/master/psb
 # - http://gutocarvalho.net/docuwiki/doku.php/puppet_instalando_puppet_master_em_centos
 # - http://gutocarvalho.net/puppet/doku.php
 # - http://www.ifunky.net/Blog/category/Puppet.aspx
-
 # - http://www.kermit.fr/kermit/doc/puppet/install.html
 # - https://github.com/sdoumbouya/puppetfiles/blob/master/puppetserver/puppetserver_bootstrap.sh
 # - https://github.com/phips/puppet-master/blob/master/setup.pp
@@ -22,24 +21,24 @@
 # - http://www.tokiwinter.com/running-puppet-master-under-apache-and-passenger/
 # - http://darktraining/105
 
-# VARIABLES ################################################################################
+# VARIABLES ############################################################################
 
 REDHAT_RELEASE=/etc/redhat-release
 PUPPETLABS_REPO_BASE="http://yum.puppetlabs.com"
 EPEL_REPO_BASE="http://dl.fedoraproject.org/pub/epel"
 EPEL_RPM_RELEASE="8"
 ARCH=`uname -m`
-FQDN=`hostname -f`
-PUPPETVERSION=`facter puppetversion`
-HOSTNAME=`/usr/bin/facter hostname`
+export FQDN=`hostname -f`
+export PUPPETVERSION=`facter puppetversion`
+export HOSTNAME=`/usr/bin/facter hostname`
+export PASSENGER_VERSION="4.0.41"
 IP=`/usr/bin/facter ipaddress`
 TIMESERVER="hora.rediris.es"
 TEMP_DIR=${TEMP:-/tmp}
 # REPO_URL="http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-7.noarch.rpm"
 # ELV=`cat /etc/redhat-release | gawk 'BEGIN {FS="release "} {print $2}' | gawk 'BEGIN {FS="."} {print $1}'` # osmajorversion
 
-
-# FUNCTIONS ################################################################################
+# FUNCTIONS ############################################################################
 
 # Run it as root
 if [ "$EUID" -ne "0" ]; then
@@ -92,16 +91,17 @@ include_repo_packages() {
 }
 
 enable_service() {
-  try /sbin/chkconfig $1 on
-  try /sbin/service $1 start
+  /sbin/chkconfig $1 on
+  /sbin/service $1 start
 }
 
 disable_service() {
-  try /sbin/chkconfig $1 off
-  try /sbin/service $1 stop
+  /sbin/chkconfig $1 off
+  /sbin/service $1 stop
 }
 
-############################################################################################
+########################################################################################
+
 # hash defining the release RPM release for each of the OS combinations we know about
 
 declare -A PUPPETLABS_RELEASE=(
@@ -150,7 +150,7 @@ else
   yum -y localinstall "${TEMP_DIR}/$PUPPETLABS_RELEASE_RPM"
 fi
 
-# Requirements ###################################################################################
+# Requirements #########################################################################
 
 # SELinux: permissive
 /usr/sbin/setenforce 0
@@ -161,12 +161,12 @@ disable_service iptables
 disable_service ip6tables
 
 yum -y update
-
 yum -y install gcc-c++ yum-utils tzdata gcc-c++ curl-devel zlib-devel openssl-devel apr-devel make automake \
-git-core wget screen redhat-lsb tree lsof
+git-core wget screen redhat-lsb tree lsof openssl
 yum groupinstall -y "Development Tools" 
 
-# Ntp service ####################################################################################
+# Ntp service ##########################################################################
+
 yum -y install ntp
 disable_service ntpd
 
@@ -185,9 +185,9 @@ END
 ntpdate -q $TIMESERVER
 enable_service ntpd
 
-# Puppet-server ###################################################################################
-disable_repo puppetlabs-products
-disable_repo puppetlabs-deps
+# Puppet-server ####################################################################### 
+
+disable_repo puppetlabs
 
 yum --enablerepo=puppetlabs* -y install puppet-server-$PUPPETVERSION-1.el6.noarch
 
@@ -235,7 +235,7 @@ END
 # same as: /usr/bin/puppet resource service puppetmaster status=running enable=true
 
 # Firewall
-cat >/etc/sysconfig/iptables<<END
+cat >/etc/sysconfig/iptables <<END
 #
 # Firewall configuration written by system-config-firewall
 # Manual customization of this file is not recommended.
@@ -258,32 +258,30 @@ enable_service iptables
 # HOSTS
 echo "$IP $FQND $HOSTNAME" >> /etc/hosts
 
-# APACHE & PASSENGER ######################################################################################
+# APACHE & PASSENGER ###################################################################
 
 yum install -y httpd httpd-devel mod_ssl ruby-rdoc ruby-devel rubygems
-/usr/bin/gem install --no-rdoc --no-ri rack passenger 
+/usr/bin/gem install --no-rdoc --no-ri rack
+/usr/bin/gem install --no-rdoc --no-ri passenger --version $PASSENGER_VERSION
+
 passenger-install-apache2-module --auto
  
 # Create the directory structure for Puppet Master Rack Application
 mkdir -p /usr/share/puppet/rack/puppetmasterd
 mkdir /usr/share/puppet/rack/puppetmasterd/public /usr/share/puppet/rack/puppetmasterd/tmp
-if [[ $PUPPETVERSION -eq '2.7.23' ]];then
-  cp /usr/share/puppet/ext/rack/files/config.ru /usr/share/puppet/rack/puppetmasterd/
-elif [[ $PUPPETVERSION --eq '3.4.3' ]];then
-  wget https://raw.github.com/puppetlabs/puppet/master/ext/rack/config.ru -O /usr/share/puppet/rack/puppetmasterd/config.ru
-fi
+wget https://raw.github.com/puppetlabs/puppet/master/ext/rack/config.ru -O /usr/share/puppet/rack/puppetmasterd/config.ru
 chown puppet /usr/share/puppet/rack/puppetmasterd/config.ru
 
-cat << 'EOF' > /etc/httpd/conf.d/puppetmaster.conf
-   LoadModule passenger_module /usr/lib/ruby/gems/1.8/gems/passenger-4.0.40/buildout/apache2/mod_passenger.so
-   <IfModule mod_passenger.c>
-     PassengerRoot /usr/lib/ruby/gems/1.8/gems/passenger-4.0.40
-     PassengerDefaultRuby /usr/bin/ruby
-   </IfModule>
+cat >/etc/httpd/conf.d/puppetmaster.conf <<EOF
+LoadModule passenger_module /usr/lib/ruby/gems/1.8/gems/passenger-$PASSENGER_VERSION/buildout/apache2/mod_passenger.so
+<IfModule mod_passenger.c>
+  PassengerRoot /usr/lib/ruby/gems/1.8/gems/passenger-$PASSENGER_VERSION
+  PassengerDefaultRuby /usr/bin/ruby
+</IfModule>
 
 # And the passenger performance tuning settings:
 PassengerHighPerformance On
-PassengerUseGlobalQueue On
+###PassengerUseGlobalQueue On
 # Set this to about 1.5 times the number of CPU cores in your master:
 PassengerMaxPoolSize 6
 # Recycle master processes after they service 1000 requests
@@ -298,8 +296,8 @@ Listen 8140
     # Only allow high security cryptography. Alter if needed for compatibility.
     SSLProtocol             All -SSLv2
     SSLCipherSuite          HIGH:!ADH:RC4+RSA:-MEDIUM:-LOW:-EXP
-    SSLCertificateFile      /var/lib/puppet/ssl/certs/${FQDN}.pem
-    SSLCertificateKeyFile   /var/lib/puppet/ssl/private_keys/${FQDN}.pem
+    SSLCertificateFile      /var/lib/puppet/ssl/certs/$FQDN.pem
+    SSLCertificateKeyFile   /var/lib/puppet/ssl/private_keys/$FQDN.pem
     SSLCertificateChainFile /var/lib/puppet/ssl/ca/ca_crt.pem
     SSLCACertificateFile    /var/lib/puppet/ssl/ca/ca_crt.pem
     SSLCARevocationFile     /var/lib/puppet/ssl/ca/ca_crl.pem
@@ -345,20 +343,16 @@ enable_service httpd
 # owner: puppet
 # group: puppet
 
-# EPEL ##############################################################################################
-
+# EPEL ################################################################################
+#
 # retrieve the release RPM and install it
-EPEL_RELEASE_NAME="epel-release-${OS_MAJOR_VERSION}-${EPEL_RPM_RELEASE}"
-EPEL_RELEASE_RPM="${EPEL_RELEASE_NAME}.noarch.rpm"
-
-if rpm_installed "${EPEL_RELEASE_NAME}" ; then
-  echo "${EPEL_RELEASE_NAME} installed"
-else
-  EPEL_REPO_URL="${EPEL_REPO_BASE}/${FAMILY_VERSION}/$ARCH/${EPEL_RELEASE_RPM}"
-  download "${EPEL_REPO_URL}" "${TEMP_DIR}/$EPEL_RELEASE_RPM"
-  yum -y localinstall "${TEMP_DIR}/$EPEL_RELEASE_RPM"
-fi
-
-disable_repo epel
-
-
+# EPEL_RELEASE_NAME="epel-release-${OS_MAJOR_VERSION}-${EPEL_RPM_RELEASE}"
+# EPEL_RELEASE_RPM="${EPEL_RELEASE_NAME}.noarch.rpm"
+# if rpm_installed "${EPEL_RELEASE_NAME}" ; then
+#  echo "${EPEL_RELEASE_NAME} installed"
+# else
+#  EPEL_REPO_URL="${EPEL_REPO_BASE}/${FAMILY_VERSION}/$ARCH/${EPEL_RELEASE_RPM}"
+#  download "${EPEL_REPO_URL}" "${TEMP_DIR}/$EPEL_RELEASE_RPM"
+#  yum -y localinstall "${TEMP_DIR}/$EPEL_RELEASE_RPM"
+# fi
+# disable_repo epel

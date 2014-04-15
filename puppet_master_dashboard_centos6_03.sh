@@ -256,7 +256,7 @@ enable_service puppet-dashboard-workers
 
 /sbin/service httpd restart
 
-if $PASSENGER == "true" {
+if [ $PASSENGER == "true" ]; then
 cat >/etc/httpd/conf.d/dashboard.conf <<END
 <VirtualHost *:80>
         PassengerRuby /usr/bin/ruby
@@ -330,4 +330,4 @@ EOF
 enable_service puppet-dashboard
 #chkconfig puppet-dashboard on
 #service puppet-dashboard start
-}
+fi

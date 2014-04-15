@@ -97,7 +97,10 @@ testmkdir /opt/puppetlabs/manifests
 testmkdir /opt/puppetlabs/modules
 
 puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-stdlib --version 3.2.1
+puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-concat --version 1.0.2
+puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-inifile --version 1.0.3
 puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-mysql --version 2.2.3
+
 git clone https://github.com/puppetlabs/puppetlabs-auth_conf /opt/puppetlabs/modules/auth_conf
 cd /opt/puppetlabs/modules/auth_conf
 git checkout tags/0.2.0

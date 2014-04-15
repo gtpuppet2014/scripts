@@ -93,7 +93,9 @@ disable_repo puppetlabs
 
 yum --enablerepo=puppetlabs* -y install puppet-dashboard-1.2.23-1.el6.noarch rubygem-activerecord-2.3.16-1.el6.noarch
 
-testmkdir "/opt/puppetlabs/{manifests,modules}"
+testmkdir /opt/puppetlabs/manifests
+testmkdir /opt/puppetlabs/modules
+
 puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-stdlib --version 3.2.1
 puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-mysql --version 2.2.3
 git clone https://github.com/puppetlabs/puppetlabs-auth_conf /opt/puppetlabs/modules/auth_conf

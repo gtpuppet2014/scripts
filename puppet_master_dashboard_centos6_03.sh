@@ -1,4 +1,3 @@
-
 #!/bin/bash
 #
 # Puppetmaster (Apache and Phussion Passenger)
@@ -80,13 +79,13 @@ include_repo_packages() {
 }
 
 enable_service() {
-  try /sbin/chkconfig $1 on
-  try /sbin/service $1 start
+  /sbin/chkconfig $1 on
+  /sbin/service $1 start
 }
 
 disable_service() {
-  try /sbin/chkconfig $1 off
-  try /sbin/service $1 stop
+  /sbin/chkconfig $1 off
+  /sbin/service $1 stop
 }
 
 # DASHBOARD ################################################################################

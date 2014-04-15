@@ -18,13 +18,13 @@ PUPPETLABS_REPO_BASE="http://yum.puppetlabs.com"
 EPEL_REPO_BASE="http://dl.fedoraproject.org/pub/epel"
 EPEL_RPM_RELEASE="8"
 ARCH=`uname -m`
-FQDN=`hostname -f`
-PORT="3000"
-HOSTNAME=`/usr/bin/facter hostname`
+export FQDN=`hostname -f`
+export PORT="3000"
+export HOSTNAME=`/usr/bin/facter hostname`
 IP=`/usr/bin/facter ipaddress`
 TEMP_DIR=${TEMP:-/tmp}
 PASSENGER="true"
-DASH_PASSWD="Va633eQ0S80OP7l148T80670"
+export DASH_PASSWD="dashboard"
 
 # FUNCTIONS ################################################################################
 
@@ -89,6 +89,7 @@ disable_service() {
 }
 
 # DASHBOARD ################################################################################
+disable_repo puppetlabs
 
 yum --enablerepo=puppetlabs* -y install puppet-dashboard-1.2.23-1.el6.noarch rubygem-activerecord-2.3.16-1.el6.noarch
 
@@ -99,7 +100,7 @@ git clone https://github.com/puppetlabs/puppetlabs-auth_conf /opt/puppetlabs/mod
 cd /opt/puppetlabs/modules/auth_conf
 git checkout tags/0.2.0
 
-cat >/opt/puppetlabs/manifests/site.pp<<EOF
+cat >/opt/puppetlabs/manifests/site.pp <<EOF
 node default {
   notice("this is the $fqdn node")
 
@@ -112,7 +113,6 @@ node default {
     grant    => ['all'],
   }
 
-/*
   include auth_conf::defaults
   
   auth_conf::acl { '/inventory':
@@ -127,14 +127,15 @@ node default {
     allow      => '*',
     order      => 082,
   }
-*/
+
 }
 EOF
 
 puppet apply -v /opt/puppetlabs/manifests/site.pp --modulepath /opt/puppetlabs/modules
 
 cd /usr/share/puppet-dashboard/config
-cat >/usr/share/puppet-dashboard/config/database.yml<<END
+
+cat >/usr/share/puppet-dashboard/config/database.yml <<END
 production:
   database: dashboard
   username: admin
@@ -143,7 +144,7 @@ production:
   adapter: mysql
 END
 
-cat >/usr/share/puppet-dashboard/config/settings.yml<<END
+cat >/usr/share/puppet-dashboard/config/settings.yml <<END
 #===[ Settings ]=========================================================
 #
 # This file is meant for storing setting information that is never
@@ -238,127 +239,6 @@ END
 rake gems:refresh_specs
 rake RAILS_ENV=production db:migrate
 
-cat >/etc/puppet/auth.conf <<END
-# This is an example auth.conf file, it mimics the puppetmasterd defaults
-#
-# The ACL are checked in order of appearance in this file.
-#
-# Supported syntax:
-# This file supports two different syntax depending on how
-# you want to express the ACL.
-#
-# Path syntax (the one used below):
-# ---------------------------------
-# path /path/to/resource
-# [environment envlist]
-# [method methodlist]
-# [auth[enthicated] {yes|no|on|off|any}]
-# allow [host|ip|*]
-# deny [host|ip]
-#
-# The path is matched as a prefix. That is /file match at
-# the same time /file_metadat and /file_content.
-#
-# Regex syntax:
-# -------------
-# This one is differenciated from the path one by a '~'
-#
-# path ~ regex
-# [environment envlist]
-# [method methodlist]
-# [auth[enthicated] {yes|no|on|off|any}]
-# allow [host|ip|*]
-# deny [host|ip]
-#
-# The regex syntax is the same as ruby ones.
-#
-# Ex:
-# path ~ .pp$
-# will match every resource ending in .pp (manifests files for instance)
-#
-# path ~ ^/path/to/resource
-# is essentially equivalent to path /path/to/resource
-#
-# environment:: restrict an ACL to a specific set of environments
-# method:: restrict an ACL to a specific set of methods
-# auth:: restrict an ACL to an authenticated or unauthenticated request
-# the default when unspecified is to restrict the ACL to authenticated requests
-# (ie exactly as if auth yes was present).
-#
-
-### Authenticated ACL - those applies only when the client
-### has a valid certificate and is thus authenticated
-
-# allow nodes to retrieve their own catalog (ie their configuration)
-path ~ ^/catalog/([^/]+)$
-method find
-allow $1
-
-# allow nodes to retrieve their own node definition
-path ~ ^/node/([^/]+)$
-method find
-allow $1
-
-# allow all nodes to access the certificates services
-path /certificate_revocation_list/ca
-method find
-allow *
-
-# allow all nodes to store their own reports
-path ~ ^/report/([^/]+)$
-method save
-allow $1
-
-# inconditionnally allow access to all files services
-# which means in practice that fileserver.conf will
-# still be used
-path /file
-allow *
-
-### Unauthenticated ACL, for clients for which the current master doesn't
-### have a valid certificate; we allow authenticated users, too, because
-### there isn't a great harm in letting that request through.
-
-# allow access to the master CA
-path /certificate/ca
-auth any
-method find
-allow *
-
-path /certificate/
-auth any
-method find
-allow *
-
-path /certificate_request
-auth any
-method find, save
-allow *
-
-#######################################################
-# Inventory
-path /inventory
-method search
-allow *
-
-path /facts
-auth any
-method find, search
-allow *
-
-path /facts
-auth any
-method save
-allow *
-
-#######################################################
-
-# this one is not stricly necessary, but it has the merit
-# to show the default policy which is deny everything else
-path /
-auth any
-END
-
 enable_service puppet-dashboard
 #chkconfig puppet-dashboard on
 #service puppet-dashboard start
@@ -372,7 +252,7 @@ enable_service puppet-dashboard-workers
 /sbin/service httpd restart
 
 if $PASSENGER == "true" {
-cat >/etc/httpd/conf.d/dashboard.conf<<END
+cat >/etc/httpd/conf.d/dashboard.conf <<END
 <VirtualHost *:80>
         PassengerRuby /usr/bin/ruby
         PassengerHighPerformance on
@@ -380,8 +260,8 @@ cat >/etc/httpd/conf.d/dashboard.conf<<END
         PassengerPoolIdleTime 1500
         PassengerMaxRequests 1000
         PassengerStatThrottleRate 120
-        RailsAutoDetect On
-        RailsBaseURI /
+#        RailsAutoDetect On
+#        RailsBaseURI /
 
         ServerName $FQDN
         DocumentRoot /usr/share/puppet-dashboard/public/
@@ -399,46 +279,46 @@ cat >/etc/httpd/conf.d/dashboard.conf<<END
 </VirtualHost>
 END
 
-cat >>/etc/puppet/puppet.conf<EOF
+cat >>/etc/puppet/puppet.conf <<EOF
 
 # reports
-reports = store, http
-reporturl = http://$FQDN/reports/upload
+reports      = store, http
+reporturl    = http://$FQDN/reports/upload
 storeconfigs = true
 
 # dashboard
-dbadapter = mysql
-dbname = dashboard
-dbuser = admin
-dbpassword = $DASH_PASSWD
-dbserver = 127.0.0.1
+dbadapter     = mysql
+dbname        = dashboard
+dbuser        = admin
+dbpassword    = $DASH_PASSWD
+dbserver      = 127.0.0.1
 dbconnections = 10
 
 # ENC
-node_terminus = exec
+node_terminus  = exec
 external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN /usr/share/puppet-dashboard/bin/external_node
 EOF
 
 disable_service puppet-dashboard
 
 else
-cat >>/etc/puppet/puppet.conf<EOF
+cat >>/etc/puppet/puppet.conf <<EOF
 
 # reports
-reports = store, http
-reporturl = http://$FQDN:$PORT/reports/upload
+reports      = store, http
+reporturl    = http://$FQDN:$PORT/reports/upload
 storeconfigs = true
 
 # dashboard
-dbadapter = mysql
-dbname = dashboard
-dbuser = admin
-dbpassword = $DASH_PASSWD
-dbserver = 127.0.0.1
+dbadapter     = mysql
+dbname        = dashboard
+dbuser        = admin
+dbpassword    = $DASH_PASSWD
+dbserver      = 127.0.0.1
 dbconnections = 10
 
 # ENC
-node_terminus = exec
+node_terminus  = exec
 external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN:$PORT /usr/share/puppet-dashboard/bin/external_node
 EOF
 

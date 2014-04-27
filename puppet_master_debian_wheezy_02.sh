@@ -230,6 +230,10 @@ EOF
 
 puppet apply -v /opt/puppetlabs/manifests/site.pp --modulepath /opt/puppetlabs/modules
 
+sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mysql/my.cnf
+sed -i 's/"max_allowed_packet = 32M"/"max_allowed_packet = 16M"/g' /etc/mysql/my.cnf
+service mysql restart
+
 cd /usr/share/puppet-dashboard/config
 
 cat >/usr/share/puppet-dashboard/config/database.yml <<END
@@ -335,13 +339,14 @@ END
 rake gems:refresh_specs
 rake RAILS_ENV=production db:migrate
 
-chkconfig puppet-dashboard on
-service puppet-dashboard start
-
+touch /usr/share/puppet-dashboard/log/production.log
 chmod 0666 /usr/share/puppet-dashboard/log/production.log
 
 cat >/etc/apache2/sites-available/dashboard <<END
-<VirtualHost *:80>
+Listen 3000
+
+<VirtualHost *:3000>
+        SetEnv RAILS_ENV production
         PassengerRuby /usr/bin/ruby
         PassengerHighPerformance on
         PassengerMaxPoolSize 12
@@ -367,11 +372,14 @@ cat >/etc/apache2/sites-available/dashboard <<END
 </VirtualHost>
 END
 
+a2ensite dashboard
+service apache2 restart
+
 cat >>/etc/puppet/puppet.conf <<EOF
 
 # reports
 reports      = store, http
-reporturl    = http://$FQDN/reports/upload
+reporturl    = http://$FQDN:$PUPPET_PORT/reports/upload
 storeconfigs = true
 
 # dashboard
@@ -384,16 +392,19 @@ dbconnections = 10
 
 # ENC
 node_terminus  = exec
-external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN /usr/share/puppet-dashboard/bin/external_node
+external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN:$PUPPET_PORT /usr/share/puppet-dashboard/bin/external_node
 EOF
+
+service puppetmaster restart
 
 /etc/init.d/puppet-dashboard stop
 update-rc.d -f puppet-dashboard remove
 
-a2ensite dashboard
-service apache2 restart
-
 touch /usr/share/puppet-dashboard/log/production.log
 chmod 0666 /usr/share/puppet-dashboard/log/production.log
 
+env RAILS_ENV=production script/delayed_job -p dashboard -n `facter processorcount` -m start
+chown -R www-data: /usr/share/puppet-dashboard/tmp/
+
+sed -i 's/START=no/START=yes/g' /etc/default/puppet-dashboard-workers
 /etc/init.d/puppet-dashboard-workers restart

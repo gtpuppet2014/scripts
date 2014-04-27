@@ -1,7 +1,8 @@
 #!/bin/sh
 
-# Ref: http://gutocarvalho.net/dokuwiki/doku.php/puppet_instalando_puppet_master_em_debian
-# Passenger: http://apt.puppetlabs.com/pool/wheezy/main/p/puppet/puppetmaster-passenger_3.4.2-1puppetlabs1_all.deb
+# http://gutocarvalho.net/dokuwiki/doku.php/puppet_instalando_puppet_master_em_debian
+# http://gutocarvalho.net/dokuwiki/doku.php/puppet_instalando_puppet_dashboard_remoto_em_debian
+# http://apt.puppetlabs.com/pool/wheezy/main/p/puppet/puppetmaster-passenger_3.4.3-1puppetlabs1_all.deb
 
 export DEB_REPO_FINAL="/etc/apt/sources.list.d/puppetlabs.list"
 export SUFFIX="1puppetlabs1"
@@ -391,3 +392,8 @@ update-rc.d -f puppet-dashboard remove
 
 a2ensite dashboard
 service apache2 restart
+
+touch /usr/share/puppet-dashboard/log/production.log
+chmod 0666 /usr/share/puppet-dashboard/log/production.log
+
+/etc/init.d/puppet-dashboard-workers restart

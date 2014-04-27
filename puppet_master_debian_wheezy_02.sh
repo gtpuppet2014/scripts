@@ -39,8 +39,9 @@ curl git-core wget tree checkinstall make automake cmake autoconf linux-headers-
 
 apt-get install -y puppetmaster-common=$PUPPET_VERSION-$SUFFIX puppetmaster=$PUPPET_VERSION-$SUFFIX
 apt-get install -y ntp ntpdate
+service ntpd stop
 ntpdate -q $TIMESERVER
-service ntpd restart
+service ntpd start
 
 service puppetmaster start
 service puppetmaster stop
@@ -79,8 +80,10 @@ END
 
 echo "*.sanclemente.local" >> /etc/puppet/autosign.conf
 
-apt-get install -y apache2-mpm-prefork apache2-mpm-worker apache2 ruby-dev ruby1.8-dev rubygems libcurl4-openssl-dev \
-apache2-threaded-dev libapr1-dev libaprutil1-dev 
+apt-get install -y apache2-mpm-prefork \
+#apache2-mpm-worker \
+apache2 ruby-dev ruby1.8-dev rubygems libcurl4-openssl-dev apache2-threaded-dev libapr1-dev \
+libaprutil1-dev 
 
 service apache2 stop
 
@@ -95,7 +98,7 @@ mkdir /usr/share/puppet/rack/puppetmasterd/public /usr/share/puppet/rack/puppetm
 wget https://raw.github.com/puppetlabs/puppet/master/ext/rack/config.ru -O /usr/share/puppet/rack/puppetmasterd/config.ru
 chown puppet /usr/share/puppet/rack/puppetmasterd/config.ru
 
-cat > /etc/apache2/sites-available/puppetmaster.conf<<EOF
+cat > /etc/apache2/sites-available/puppetmaster<<EOF
 LoadModule passenger_module /var/lib/gems/1.9.1/gems/passenger-$PASSENGER_VERSION/buildout/apache2/mod_passenger.so
    <IfModule mod_passenger.c>
      PassengerRoot /var/lib/gems/1.9.1/gems/passenger-$PASSENGER_VERSION
@@ -154,8 +157,8 @@ Listen $PUPPET_PORT
 </VirtualHost>
 EOF
 
-a2ensite puppetmaster
 a2enmod passenger headers ssl
+a2ensite puppetmaster
 
 service apache2 restart
 chkconfig apache2 on

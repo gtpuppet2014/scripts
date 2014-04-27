@@ -14,6 +14,7 @@ export FQDN=`hostname -f`
 export PUPPETVERSION=`facter puppetversion`
 export HOSTNAME=`/usr/bin/facter hostname`
 export PASSENGER_VERSION="4.0.41"
+export DASH_VERSION="1.2.23"
 export DASH_PASSWD="dashboard"
 IP=`/usr/bin/facter ipaddress`
 TIMESERVER="hora.rediris.es"
@@ -162,11 +163,10 @@ a2enmod passenger headers ssl
 a2ensite puppetmaster
 
 service apache2 restart
-chkconfig apache2 on
+puppet resource service apache2 ensure=running enable=true 
 
-chkconfig puppetmaster off
-inserv -r puppetmaster
-update-rc.d -f puppetmaster remove
+/etc/init.d/puppetmaster stop
+update-rc.d -f puppetmasterremove
 
 testmkdir "/etc/puppet/manifests"
 testmkdir "/etc/puppet/modules"
@@ -180,10 +180,12 @@ node default {
 
 END
 
+# PUPPET DASHBOARD 1.2.23
 testmkdir /opt/puppetlabs/manifests
 testmkdir /opt/puppetlabs/modules
 
-apt-get install libactiverecord-ruby libmysql-ruby
+apt-get install -y libactiverecord-ruby libmysql-ruby irb libmysqlclient-dev libopenssl-ruby libreadline-ruby
+apt-get install -y puppet-dashboard=$DASH_VERSION-$SUFFIX
 
 puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-stdlib --version 3.2.1
 puppet module install --force --ignore-dependencies --modulepath /opt/puppetlabs/modules/ puppetlabs-concat --version 1.0.2
@@ -384,8 +386,8 @@ node_terminus  = exec
 external_nodes = /usr/bin/env PUPPET_DASHBOARD_URL=http://$FQDN /usr/share/puppet-dashboard/bin/external_node
 EOF
 
-service puppet-dashboard stop
-chkconfig puppet-dashboard off
+/etc/init.d/puppet-dashboard stop
+update-rc.d -f puppet-dashboard remove
 
 a2ensite dashboard
 service apache2 restart
